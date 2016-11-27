@@ -46,10 +46,10 @@ app.use( express.static( './public' ) ); // load UI from public folder
 app.use( bodyParser.json() );
 
 var pool  = mysql.createPool({
-      host: "us-cdbr-iron-east-04.cleardb.net",
-      user: "b314a0a53a4703",
-      password: '619231dc',
-      database: 'ad_cd8f6c0bd75ae1b',
+      host: "xxxxxx",
+      user: "xxxxxx",
+      password: 'xxxxxx',
+      database: 'xxxxx',
       debug: false
 });
 
