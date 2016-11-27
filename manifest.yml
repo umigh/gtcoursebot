@@ -1,0 +1,15 @@
+---
+declared-services:
+  gtcoursebotservice:
+    label: GT Course Bot
+    plan: free
+applications:
+- name: gtcoursebot
+  command: npm start
+  path: .
+  memory: 256M
+  instances: 1
+  services:
+  - gtcoursebotservice
+  env:
+    NPM_CONFIG_PRODUCTION: false
