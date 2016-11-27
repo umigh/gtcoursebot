@@ -156,7 +156,7 @@ function updateMessage(res,input, response) {
   }
 
   /***********************************************************************
-    Added by umashankar3 for GTCourseBot app - start
+    Added by umashankar3 for GTCourseBot app - end
   ***********************************************************************/
   function getSqlData(intent,entity,value,callback) {
       var mysql = require('mysql'); //run 'npm install mysql' for this to work
