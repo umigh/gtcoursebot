@@ -46,10 +46,10 @@ app.use( express.static( './public' ) ); // load UI from public folder
 app.use( bodyParser.json() );
 
 var pool  = mysql.createPool({
-      host: "xxxxxx",
-      user: "xxxxxx",
-      password: 'xxxxxx',
-      database: 'xxxxx',
+      host: "us-cdbr-iron-east-04.cleardb.net",
+      user: "b314a0a53a4703",
+      password: '619231dc',
+      database: 'ad_cd8f6c0bd75ae1b',
       debug: false
 });
 
@@ -58,6 +58,15 @@ var getConnection = function(callback) {
         callback(err, connection);
     });
 };
+
+//var app = express();
+//app.use(express.cookieParser());
+//app.use(express.session({secret: '1234567890QWERTY'}));
+
+
+app.use(express.cookieParser());
+app.use(express.session({secret: '1234567890QWERTY'}));
+
 
 
 
@@ -75,7 +84,8 @@ var conversation = new Watson( {
 // Endpoint to be call from the client side
 app.post( '/api/message', function(req, res) {
 var finalresponse="initial response";
-
+  console.log(req.session);
+  
   var setdataresponse = function(data) {
     console.log("finalresponse=",data);
     finalresponse.output.text=data;
@@ -116,7 +126,7 @@ var finalresponse="initial response";
     if ( err ) {
       return res.status( err.code || 500 ).json( err );
     }
-    return updateMessage(res,payload, data );    
+    return updateMessage(req,res,payload, data );   
   } );
 } );
 
@@ -147,7 +157,7 @@ function logoutput(response) {
  * @param  {Object} response The response from the Conversation service
  * @return {Object}          The response with the updated message
  */
-function updateMessage(res,input, response) {
+function updateMessage(req,res,input, response) {
   var setdataresponse = function(data) {
     console.log("finalresponse=",data);
     response.output.text=data;
@@ -156,7 +166,7 @@ function updateMessage(res,input, response) {
   }
 
   /***********************************************************************
-    Added by umashankar3 for GTCourseBot app - end
+    Added by umashankar3 for GTCourseBot app - start
   ***********************************************************************/
   function getSqlData(intent,entity,value,callback) {
       var mysql = require('mysql'); //run 'npm install mysql' for this to work
@@ -167,25 +177,83 @@ function updateMessage(res,input, response) {
               }
           }
           if (conn) { 
-              console.log("select "+intent+" as intent from "+entity+" where courseid='"+value+"'");
-              conn.query("select "+intent+" as intent from "+entity+" where courseid='"+value+"'",[], function(err, rows) {
-                  if (err) {
-                      console.log(err);
-                      return setdataresponse("SQL error");
-                  } else 
-                    console.log(rows);
-                    if(rows.length>1) {
-                      return setdataresponse("I am sorry. I did not have the answer. Please rephrase the question and try again.");
-                    }       
-                    else {
-                      if(rows && rows.length>0) {
-                        return setdataresponse(rows[0].intent)
+              console.log("select name, "+intent+" as result from "+entity+" where courseid='"+value+"'");
+              var selectList;
+              if(intent=='grade') {
+                selectList="concat('A ',A,' %,  B ',B,' %,  C ',C,' %, D ',D,' %, W ',W,' %')";
+              }
+              else if(intent=="registration") {
+                selectList="name";
+              }
+              else {
+                selectList=intent;
+              }
+              conn.query("select name,cap,wlcap,"+selectList+" as result from "+entity+" where courseid='"+value+"'",[], function(err, rows) {
+              if (err) {
+                  console.log(err);
+                  return setdataresponse("I am sorry. I don't have that information. Ask something else.");
+              } else                 
+                if(rows.length>1) {
+                  return setdataresponse("I have too many answers. Please rephrase the question and try again.");
+                }       
+                else if(rows && rows.length==0) {
+                  return setdataresponse("I am sorry. I don't have that information. Can rephrase your question and ask again? You can ask about a couse details such as professor, difficulty, average grades and etc. ");
+                }
+                else {
+                    var output;
+                    console.log("intent--",intent);
+                    if(intent=="registration") {
+                      output="I cannot register the course but I can provide information of the course that can help you decide register. The name of the course is "+rows[0].result+". Do you want to know anything else about this course?";
+                    }
+                    else if(intent=="A" || intent=="B" || intent=="C" || intent=="D" || intent=="W") {
+                      output="The average percentage of students who got grade "+intent+" in course "+rows[0].name+" is "+rows[0].result;
+                    }
+                    else if(intent=="grade") {
+                      output="The average percentage of students grades in course "+rows[0].name+" are "+rows[0].result;
+                    }
+                    else if(intent=="workload") {
+                      output="On an average "+rows[0].result+" hours per week required for course "+rows[0].name;
+                    }
+                    else if(intent=="foundational") {
+                      if(rows[0].result=="Yes") {
+                        output=rows[0].name+" is a foundational course";
                       }
                       else {
-                        return setdataresponse("I am sorry. I don't have that information. Can rephrase your question and ask again? You can ask about a couse details such as professor, difficulty, average grades and etc. ")
+                        output=rows[0].name+" is NOT a foundational course";
                       }
                     }
-                  }
+                    else if(intent=="difficulty") {
+                      output="Average difficulty level for course  "+rows[0].name+ " is "+rows[0].result+" in a scale of 1 to 5";
+                    }
+                    else if(intent=="rating") {
+                      output="Average rating for course  "+rows[0].name+ " is "+rows[0].result+" in a scale of 1 to 5";
+                    }
+                    else if(intent=="cap") {
+                      output="Capacity of the course  "+rows[0].name+ " is "+rows[0].result;
+                    }
+                    else if(intent=="act") {
+                      output=rows[0].result+" seats out of "+rows[0].cap+" are filled in the course "+rows[0].name;
+                    }
+                    else if(intent=="rem") {
+                      output=rows[0].result+" seats remaining in the course "+rows[0].name;
+                    }
+                    else if(intent=="wlcap") {
+                      output="Capacity of the waitlist for course  "+rows[0].name+ " is "+rows[0].result;
+                    }
+                    else if(intent=="wlact") {
+                      output=rows[0].result+" seats out of "+rows[0].wlcap+" are filled in the waitlist for course "+rows[0].name;
+                    }
+                    else if(intent=="wlrem") {
+                      output=rows[0].result+" seats remaining in the waitlist for course "+rows[0].name;
+                    }
+                    else {
+                      console.log("else registration....");
+                      output=rows[0].result;
+                    }
+
+                    return setdataresponse(output);
+                }
+              }
               );
               conn.release();                
           }
@@ -195,86 +263,129 @@ function updateMessage(res,input, response) {
   var responseText = null;
   var id = null;
   console.log("response",response.output);
-  console.log("\n\n");
-  console.log("intents",response.intents);
-  console.log("\n\n");
+
+  console.log("intent",response.intents);
+
   console.log("entities",response.entities);
-  
-  if(response.intents && response.intents.length > 0  && response.entities && response.intents && response.entities.length > 0 ) {
-      console.log("------- response.intents[0]------",response.intents[0]);
-      if(response.intents[0].intent == 'grade') {
-        console.log("**** INTENET GRADE ******");
-        response.output.text="I dont have grading information. It will be implemented in project 3.2. You can ask me for other info.";
-        logoutput(response)
-        return res.json(response);
-      }
-      else if(response.intents[0].intent == 'registration' || response.intents[0].intent == 'crn') {
-        console.log("**** INTENET registration ******");
-        response.output.text="I am sorry. I dont have registration info. It will  be implemented in project 3.2. You can ask me for other info.";
-        logoutput(response)
-        return res.json(response);
-      } 
-      else {
-        console.log("**** UPDATE DB *******",response.intents[0].intent,response.entities[0].entity,response.entities[0].value);
-        console.log("check=",response.entities[0].entity != 'omscs');
-        if(response.entities[0].entity != 'omscs') { //take answers from workspace dialogue for omscs
-          return getSqlData(response.intents[0].intent,response.entities[0].entity,response.entities[0].value,response);    
-        }
-      }
+
+  var intent;
+  var entity;
+  var entityValue;
+
+  if(response.intents[0] && (response.intents[0].intent=='greeting' || response.intents[0].intent=='gesture' || response.intents[0].intent=='thankyou' || response.intents[0].intent=='negetive_reaction')) {
+      return res.json(response);
   }
 
-  if ( response.intents && response.intents[0] ) {
+  if(response.intents && response.intents.length > 0  && response.entities && response.intents && response.entities.length > 0 ) {
+      if(response.intents[0].intent=='previous') {
+        intent=req.session.intent
+      }
+      else {
+        intent=response.intents[0].intent;
+      }
+
+      entity=response.entities[0].entity;
+      entityValue=response.entities[0].value;
+      req.session.intent=intent;
+      req.session.entity=entity;
+      req.session.entityValue=entityValue;
+  }
+  else if(response.intents && response.intents.length == 0 && response.entities  && response.entities.length>0) {
+      intent=req.session.intent
+      entity=response.entities[0].entity;
+      entityValue=response.entities[0].value;
+      req.session.intent=intent;
+      req.session.entity=entity;
+      req.session.entityValue=entityValue;
+  }
+  else if(response.intents && response.intents.length > 0 && response.entities  && response.entities.length==0) {
     if(response.intents[0].intent == 'greeting') {
         response.output.text="Hello! How can I help you?";
         logoutput(response)
         return res.json(response);
     }
-
-
-    if(response.intents[0].intent == 'grade') {
-        response.output.text="I dont have grading information. It will be implemented in project 3.2. You can ask me for other info.";
-        logoutput(response)
-        return res.json(response);
+    else if(response.intents[0].intent=='previous') {
+        intent=req.session.intent
     }
-    
-    if(response.intents[0].intent == 'registration') {
-        response.output.text="I am sorry. I dont have registration info. It will  be implemented in project 3.2. You can ask me for other info.";
-        logoutput(response)
-        return res.json(response);
-     }
+    else {
+      intent=response.intents[0].intent;
+    }
 
-    if(!response.entities || response.entities.length==0) {
-      response.output.text="I understand your intent is "+response.intents[0].intent+" but the entity you entered is not valid.";        
-      logoutput(response)
+    entity=req.session.entity;
+    entityValue=req.session.entityValue
+    req.session.intent=intent;
+    req.session.entity=entity;
+    req.session.entityValue=entityValue;
+  }
+  else {
+    response.output.text="Welcome to GT Course Bot. How can I help you?";
+    return res.json(response);
+  }
+
+  if(response.intents && response.intents.length > 0 && response.intents[0].intent=='previous') {
+    intent=req.session.intent
+  }
+
+  console.log("--------------------------------------------------------------");
+  console.log("response",response.output);
+  console.log("\n\n");
+  console.log("intent",intent);
+  console.log("\n\n");
+  console.log("entitiy",entity);
+  console.log("\n\n");
+  console.log("entitiyValue",entityValue);
+
+
+  if(intent  && entity && entityValue ) {
+      if(entity == 'omscs') { //take answers from workspace dialogue for omscs
+        var output;
+        if(intent=="cost") {
+          output="OMSCS costs about 7000 dollors.";
+          response.output.text=output;
+        }
+        else if(intent=="name") {
+          output="Online Master of Science in Computer Science.";
+          response.output.text=output;
+        }
+        else if(intent=="sponsor") {
+          output="Georgia Tech  teamed up with Udacity and AT&T to offer the first online Master of Science in Computer Science from an accredited university that students can earn exclusively through the 'massive online' format and for a fraction of the normal cost.";
+          response.output.text=output;
+        }
+        else if(intent=="admission") {
+          output="Preferred qualifications for admitted OMS CS students are an undergraduate degree in computer science or related field (typically mathematics, computer engineering or electrical engineering) from an accredited institution with a cumulative GPA of 3.0 or higher. Applicants who do not meet these criteria will be evaluated on a case-by-case basis; however, work experience will not take the place of an undergraduate degree. The following are required for admission: Evidence of award of a 4-year bachelor's degree or its equivalent (prior to matriculation) from a recognized institution, demonstrated academic excellence and evidence of preparation in their chosen field sufficient to ensure successful graduate study For international applicants, satisfactory scores on the Test of English as a Foreign Language (TOEFL)";
+          response.output.text=output;
+        }
+        else if(intent=="specialization") {
+          output="Specializations Currently Offered are   1. Computational Perception & Robotics  2. Computing Systems  3. Interactive Intelligence  4. Machine Learning";
+          response.output.text=output;
+        }
+        else  {
+          output="I know you asked about OMSCS but I did not understand what you want to know about OMSCS. Please ask again.";
+          response.output.text=output;
+        }
+
+        return res.json(response);
+      }
+      else {
+        return getSqlData(intent,entity,entityValue); 
+      }
+  }
+  else if(intent && !entity){
+    if(intent == 'registration') {
+      response.output.text="I understand that you want register a course. Which course you want to register?";
       return res.json(response);
     }
+    response.output.text="I am sorry I did not understand your question. Please rephrase your question. I can help with OMSCS and course information.";
+    return res.json(response);
+  } else {
+    response.output.text="I am sorry I did not understand your question. Please rephrase your question. I can help with OMSCS and course information.";
+    return res.json(response);
   }
+
+  
   /***********************************************************************
     Added by umashankar3 for GTCourseBot app - start
   ***********************************************************************/
-  /*
-  if ( response.intents && response.intents[0] ) {
-    var intent = response.intents[0];
-    // Depending on the confidence of the response the app can return different messages.
-    // The confidence will vary depending on how well the system is trained. The service will always try to assign
-    // a class/intent to the input. If the confidence is low, then it suggests the service is unsure of the
-    // user's intent . In these cases it is usually best to return a disambiguation message
-    // ('I did not understand your intent, please rephrase your question', etc..)
-    if ( intent.confidence >= 0.75 ) {
-      responseText = 'I understood your intent was ' + intent.intent;
-    } else if ( intent.confidence >= 0.5 ) {
-      responseText = 'I think your intent was ' + intent.intent;
-    } else {
-      responseText = 'I did not understand your intent';
-    }
-  }
-  response.output.text = responseText;
-  if ( logs ) {
-    // If the logs db is set, then we want to record all input and responses
-    id = uuid.v4();
-    logs.insert( {'_id': id, 'request': input, 'response': response, 'time': new Date()});
-  }  
-  */
   return res.json(response);
 }
 
