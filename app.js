@@ -384,7 +384,7 @@ function updateMessage(req,res,input, response) {
 
   
   /***********************************************************************
-    Added by umashankar3 for GTCourseBot app - start
+    Added by umashankar3 for GTCourseBot app - start Testing at This point!
   ***********************************************************************/
   return res.json(response);
 }
