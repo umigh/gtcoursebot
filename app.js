@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /*
-* branch cs6460bot. This is created from gtcoursebot master repository.
+* branch cs6460bot. This is created from gtcoursebot master repository.  ** arana9
 */
 
 'use strict';
